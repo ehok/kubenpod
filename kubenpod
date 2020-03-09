@@ -1,3 +1,4 @@
+#!/bin/bash
 IFS=$'\r\n' GLOBIGNORE='*' command eval  'XYZ=($(kubectl get pod  -A --field-selector spec.nodeName="$1" --no-headers))'
 for (( i=0; i<${#XYZ[@]}; i++ ));
 do
