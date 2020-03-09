@@ -1,0 +1,5 @@
+IFS=$'\r\n' GLOBIGNORE='*' command eval  'XYZ=($(kubectl get pod  -A --field-selector spec.nodeName="$1" --no-headers))'
+for (( i=0; i<${#XYZ[@]}; i++ ));
+do
+        kubectl top pod -A --no-headers | grep $(echo "${XYZ[$i]}" | awk '{print $2}')
+done
