@@ -1,7 +1,18 @@
 #!/bin/bash
-IFS=$'\r\n' GLOBIGNORE='*' command eval  'XYZ=($(kubectl get pod  -A --field-selector spec.nodeName="${1?	Error: node ip girilmedi.	Örnek kullanım: kubentop ip-10-0-0-1.eu-central-1.compute.internal}" --no-headers))'
-pod_output=$(kubectl top pod -A --no-headers)
-for (( i=0; i<${#XYZ[@]}; i++ ));
-do
-        echo -e "${pod_output}" | grep $(echo "${XYZ[$i]}" | awk '{print $2}')
-done
+if [[ "${1}" == '-p' ]]; then
+	pod_ns=$(kubectl get pods -A | grep ${2} | awk '{print $1}')
+	pod_no=$(kubectl get pods -o=yaml -n ${pod_ns} ${2} | grep nodeName | awk '{print $2}')
+	IFS=$'\r\n' GLOBIGNORE='*' command eval  'XYZ=($(kubectl get pod  -A --field-selector spec.nodeName="${pod_no}" --no-headers))'
+	pod_output=$(kubectl top pod -A --no-headers)
+	for (( i=0; i<${#XYZ[@]}; i++ ));
+	do
+	        echo -e "${pod_output}" | grep $(echo "${XYZ[$i]}" | awk '{print $2}')
+	done
+else
+	IFS=$'\r\n' GLOBIGNORE='*' command eval  'XYZ=($(kubectl get pod  -A --field-selector spec.nodeName="${1?	Error: node ip girilmedi.	Örnek kullanım: kubentop ip-10-0-0-1.eu-central-1.compute.internal}" --no-headers))'
+	pod_output=$(kubectl top pod -A --no-headers)
+	for (( i=0; i<${#XYZ[@]}; i++ ));
+	do
+	        echo -e "${pod_output}" | grep $(echo "${XYZ[$i]}" | awk '{print $2}')
+	done
+fi
