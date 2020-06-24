@@ -2,10 +2,12 @@
 usage() {
   cat <<EOF
 USAGE:
-  kubenpod <NODE_NAME>          : list all pods of the <NODE_NAME>
-  kubenpod -p <POD_NAME>        : list all pods of the <POD_NAME>'s node 
-  kubenpod                      : show this message
-  kubenpod -h,--help            : show this message
+  kubenpod <NODE_NAME>                 : show metrics of all pods of the <NODE_NAME>
+  kubenpod -p <POD_NAME>               : show metrics of pods of the <POD_NAME>'s node 
+  kubenpod                             : show this message
+  kubenpod -h,--help                   : show this message
+  kubenpod -l,--list <NODE_NAME>       : list all pods of the <NODE_NAME>
+  kubenpod -lp,--listpod <POD_NAME>    : list all pods of the <POD_NAME>'s node 
 EOF
 }
 top_pod() {	
@@ -16,13 +18,26 @@ top_pod() {
 	        echo -e "${pod_output}" | grep $(echo "${XYZ[$i]}" | awk '{print $2}')
 	done
 }
+list_pod() {
+	IFS=$'\r\n' GLOBIGNORE='*' command eval  'XYZ=($(kubectl get pod  -A --field-selector spec.nodeName="${1}" --no-headers))'
+	for (( i=0; i<${#XYZ[@]}; i++ ));
+	do
+	    echo "${XYZ[$i]}"
+	done
+}
 if [[ "${1}" == '-p' ]]; then
 	pod_ns=$(kubectl get pods -A | grep ${2} | awk '{print $1}')
 	pod_no=$(kubectl get pods -n ${pod_ns} ${2} --no-headers -o=custom-columns=pod_no:.spec.nodeName)
 	echo kubenpod ${pod_no}
 	top_pod "${pod_no}"
 elif [[ "${1}" == '-h' || "${1}" == '--help' || -z "${1}" ]]; then
-      usage
+    usage
+elif [[ "${1}" == '-l' || "${1}" == '--list' ]]; then
+    list_pod "${2}"
+elif [[ "${1}" == '-lp' || "${1}" == '--listpod' ]]; then
+	pod_ns=$(kubectl get pods -A | grep ${2} | awk '{print $1}')
+	pod_no=$(kubectl get pods -n ${pod_ns} ${2} --no-headers -o=custom-columns=pod_no:.spec.nodeName)
+    list_pod "${pod_no}"
 else
 	top_pod "${1}"
 fi
