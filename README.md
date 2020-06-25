@@ -69,4 +69,4 @@ USAGE:
 
 ## Special Thanks To
 
-@mertongngl[http://github.com/mertongngl]
+Mert Öngengil [@mertongngl](http://github.com/mertongngl)
