@@ -66,3 +66,7 @@ USAGE:
   kubenpod -l,--list <NODE_NAME>       : list all pods of the <NODE_NAME>
   kubenpod -lp,--listpod <POD_NAME>    : list all pods of the <POD_NAME>'s node 
 ```
+
+## Special Thanks To
+
+@mertongngl[http://github.com/mertongngl]
