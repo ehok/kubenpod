@@ -11,18 +11,18 @@ USAGE:
 EOF
 }
 top_pod() {	
-	IFS=$'\r\n' GLOBIGNORE='*' command eval  'XYZ=($(kubectl get pod  -A --field-selector spec.nodeName="${1}" --no-headers))'
+	IFS=$'\r\n' GLOBIGNORE='*' command eval  'POD_LIST=($(kubectl get pod  -A --field-selector spec.nodeName="${1}" --no-headers))'
 	pod_output=$(kubectl top pod -A --no-headers)
-	for (( i=0; i<${#XYZ[@]}; i++ ));
+	for (( i=0; i<${#POD_LIST[@]}; i++ ));
 	do
-	        echo -e "${pod_output}" | grep $(echo "${XYZ[$i]}" | awk '{print $2}')
+	        echo -e "${pod_output}" | grep $(echo "${POD_LIST[$i]}" | awk '{print $2}')
 	done
 }
 list_pod() {
-	IFS=$'\r\n' GLOBIGNORE='*' command eval  'XYZ=($(kubectl get pod  -A --field-selector spec.nodeName="${1}" --no-headers))'
-	for (( i=0; i<${#XYZ[@]}; i++ ));
+	IFS=$'\r\n' GLOBIGNORE='*' command eval  'POD_LIST=($(kubectl get pod  -A --field-selector spec.nodeName="${1}" --no-headers))'
+	for (( i=0; i<${#POD_LIST[@]}; i++ ));
 	do
-	    echo "${XYZ[$i]}"
+	    echo "${POD_LIST[$i]}"
 	done
 }
 if [[ "${1}" == '-p' ]]; then
