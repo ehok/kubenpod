@@ -1,7 +1,9 @@
 # Kubenpod
 > Note that everything is experimental and may change significantly at any time.
 
-This repository collects pods that are running on specified node's.
+This tool aims to make it easier to list the pods that work in node on Kubernetes Cluster.
+This can be done with a node name or a pod name as you can see at examples below.
+If you encounter any problem or complexity, you can post it here as a comment.
 
 ## Installation
 ```
