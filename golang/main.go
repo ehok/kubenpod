@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/fatih/color"
+	"github.com/manifoldco/promptui"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -38,23 +39,67 @@ func main() {
 	var cmdTop = &cobra.Command{
 		Use:   "top [NODE_NAME]",
 		Short: "Show metrics of all pods on the NODE_NAME",
-		Args:  cobra.MinimumNArgs(1),
+		// Args:  cobra.MinimumNArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			topPod(args[0], clientset, metricsClient)
+			// topPod(args[0], clientset, metricsClient)
+			nodeName := getNodeName(args, clientset)
+			if nodeName == "" {
+				fmt.Println("No node selected.")
+				return
+			}
+			topPod(nodeName, clientset, metricsClient)
 		},
 	}
 
 	var cmdList = &cobra.Command{
 		Use:   "list [NODE_NAME]",
 		Short: "List all pods on the NODE_NAME",
-		Args:  cobra.MinimumNArgs(1),
+		// Args:  cobra.MinimumNArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			listPod(args[0], clientset)
+			// listPod(args[0], clientset)
+			nodeName := getNodeName(args, clientset)
+			if nodeName == "" {
+				fmt.Println("No node selected.")
+				return
+			}
+			listPod(nodeName, clientset)
 		},
 	}
 
 	rootCmd.AddCommand(cmdTop, cmdList)
 	rootCmd.Execute()
+}
+
+func getNodeName(args []string, clientset *kubernetes.Clientset) string {
+	if len(args) > 0 && args[0] != "" {
+		return args[0]
+	}
+
+	nodes, err := clientset.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		fmt.Println("Failed to fetch nodes:", err)
+		return ""
+	}
+
+	nodeNames := []string{}
+	for _, node := range nodes.Items {
+		nodeNames = append(nodeNames, node.Name)
+	}
+
+	prompt := promptui.Select{
+		Label: "Select Node",
+		Items: nodeNames,
+	}
+
+	_, result, err := prompt.Run()
+	if err != nil {
+		fmt.Println("Prompt failed:", err)
+		return ""
+	}
+
+	return result
 }
 
 func topPod(node string, clientset *kubernetes.Clientset, metricsClient *versioned.Clientset) {
