@@ -46,6 +46,12 @@ To list all pods on the node where a specific pod is running:
 $ kubenpod list --pod-name mypodname
 ```
 
+### `version` Command
+To display version information for CLI & Kubernetes server:
+```
+$ kubenpod version
+```
+
 ## Additional Notes
 - Ensure that your Kubernetes context is correctly set. `kubenpod` uses the default kubeconfig file path for authentication.
 - The commands require at least cluster-level read permissions to fetch the node and pod metrics.

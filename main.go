@@ -16,6 +16,7 @@ import (
 )
 
 func main() {
+	const cliVersion = "1.0.0"
 	var podName string
 	var rootCmd = &cobra.Command{Use: "kubenpod"}
 	rootCmd.PersistentFlags().StringVarP(&podName, "pod-name", "p", "", "Specify the name of the pod to focus on a specific node")
@@ -36,6 +37,20 @@ func main() {
 	if err != nil {
 		fmt.Println("Error creating metrics client:", err)
 		os.Exit(1)
+	}
+
+	var cmdVersion = &cobra.Command{
+		Use:   "version",
+		Short: "Print the version number of kubenpod and the Kubernetes server",
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Printf("kubenpod version %s\n", cliVersion)
+			version, err := clientset.Discovery().ServerVersion()
+			if err != nil {
+				fmt.Printf("Error fetching Kubernetes server version: %s\n", err)
+				return
+			}
+			fmt.Printf("Kubernetes server version: %s\n", version.GitVersion)
+		},
 	}
 
 	var cmdTop = &cobra.Command{
@@ -91,7 +106,7 @@ func main() {
 		},
 	}
 
-	rootCmd.AddCommand(cmdTop, cmdList)
+	rootCmd.AddCommand(cmdTop, cmdList, cmdVersion)
 	// rootCmd.AddCommand(cmdTop)
 	rootCmd.Execute()
 }
