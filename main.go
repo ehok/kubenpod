@@ -16,7 +16,7 @@ import (
 )
 
 func main() {
-	const cliVersion = "1.0.0"
+	const cliVersion = "1.1.0"
 	var podName string
 	var rootCmd = &cobra.Command{Use: "kubenpod"}
 	rootCmd.PersistentFlags().StringVarP(&podName, "pod-name", "p", "", "Specify the name of the pod to focus on a specific node")
@@ -115,10 +115,18 @@ func getNodeNameFromPod(podName string, clientset *kubernetes.Clientset) string 
 	pods, err := clientset.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{
 		FieldSelector: fmt.Sprintf("metadata.name=%s", podName),
 	})
-	if err != nil || len(pods.Items) == 0 {
+	if err != nil {
+		fmt.Printf("Error retrieving pods: %v\n", err)
 		return ""
 	}
-	return pods.Items[0].Spec.NodeName
+	if len(pods.Items) == 0 {
+		fmt.Println("No pods found with the specified name.")
+		return ""
+	}
+
+	nodeName := pods.Items[0].Spec.NodeName
+	fmt.Printf("Node name retrieved from pod '%s': %s\n", podName, nodeName)
+	return nodeName
 }
 
 func getNodeName(args []string, clientset *kubernetes.Clientset) string {
