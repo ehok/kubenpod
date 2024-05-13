@@ -5,19 +5,21 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"strings"
 
 	"github.com/fatih/color"
 	"github.com/manifoldco/promptui"
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/metrics/pkg/client/clientset/versioned"
 )
 
 func main() {
-	const cliVersion = "1.1.0"
-	var podName string
+	const cliVersion = "1.2.0"
+	var podName, namespace string
 	var rootCmd = &cobra.Command{Use: "kubenpod"}
 	rootCmd.PersistentFlags().StringVarP(&podName, "pod-name", "p", "", "Specify the name of the pod to focus on a specific node")
 
@@ -79,10 +81,8 @@ func main() {
 	var cmdList = &cobra.Command{
 		Use:   "list [NODE_NAME]",
 		Short: "List all pods on the NODE_NAME",
-		// Args:  cobra.MinimumNArgs(1),
-		Args: cobra.MaximumNArgs(1),
+		Args:  cobra.MaximumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			// listPod(args[0], clientset)
 			nodeName := ""
 			if podName != "" {
 				nodeName = getNodeNameFromPod(podName, clientset)
@@ -97,17 +97,34 @@ func main() {
 					return
 				}
 			}
-			// nodeName := getNodeName(args, clientset)
-			// if nodeName == "" {
-			// 	fmt.Println("No node selected.")
-			// 	return
-			// }
 			listPod(nodeName, clientset)
 		},
 	}
 
-	rootCmd.AddCommand(cmdTop, cmdList, cmdVersion)
-	// rootCmd.AddCommand(cmdTop)
+	var cmdServiceResources = &cobra.Command{
+		Use:   "service-resources [SERVICE_NAME]",
+		Short: "Show detailed information about a service and related resources like deployments and pods",
+		Args:  cobra.MaximumNArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			var serviceName string
+			if len(args) == 0 {
+				serviceName, namespace = promptForService(clientset)
+				if serviceName == "" {
+					fmt.Println("No service selected.")
+					return
+				}
+			} else {
+				serviceName = args[0]
+				if namespace == "" {
+					namespace = findServiceNamespace(serviceName, clientset)
+				}
+			}
+			showServiceDetailsAndRelatedResources(serviceName, namespace, clientset)
+		},
+	}
+	cmdServiceResources.Flags().StringVarP(&namespace, "namespace", "n", "", "Specify the namespace of the service")
+
+	rootCmd.AddCommand(cmdTop, cmdList, cmdVersion, cmdServiceResources)
 	rootCmd.Execute()
 }
 
@@ -160,18 +177,13 @@ func getNodeName(args []string, clientset *kubernetes.Clientset) string {
 }
 
 func topPod(node string, clientset *kubernetes.Clientset, metricsClient *versioned.Clientset) {
-	// Fetch all pods across all namespaces
 	pods, err := clientset.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		fmt.Println("Error fetching pods:", err)
 		return
 	}
 
-	// Build a map to relate each pod to its node
 	podNodeMap := make(map[string]string)
-	// maxNamespaceLen := len("Namespace")
-	// maxPodNameLen := len("Pod")
-	// maxContainerNameLen := len("Container")
 	maxNamespaceLen, maxPodNameLen, maxContainerNameLen := len("Namespace"), len("Pod"), len("Container")
 	memoryUsages := []float64{}
 
@@ -190,11 +202,9 @@ func topPod(node string, clientset *kubernetes.Clientset, metricsClient *version
 		}
 	}
 
-	// Define the format for output
 	formatHeader := fmt.Sprintf("%%-%ds %%-%ds %%-%ds %%-8s %%-8s\n", maxNamespaceLen, maxPodNameLen, maxContainerNameLen)
 	fmt.Printf(formatHeader, "Namespace", "Pod", "Container", "CPU", "Memory")
 
-	// Fetch metrics for all pods across all namespaces
 	metrics, err := metricsClient.MetricsV1beta1().PodMetricses("").List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		fmt.Println("Error fetching pod metrics:", err)
@@ -202,9 +212,8 @@ func topPod(node string, clientset *kubernetes.Clientset, metricsClient *version
 	}
 
 	for _, item := range metrics.Items {
-		if podNodeMap[item.Namespace+"/"+item.Name] == node { // Ensure we only print metrics for the specified node
+		if podNodeMap[item.Namespace+"/"+item.Name] == node {
 			for _, container := range item.Containers {
-				// cpu := fmt.Sprintf("%vm", container.Usage.Cpu().MilliValue())
 				memoryMi := float64(container.Usage.Memory().Value() / 1024 / 1024)
 				memoryUsages = append(memoryUsages, memoryMi)
 				// memoryStr := fmt.Sprintf("%vMi", memoryMi)
@@ -218,7 +227,6 @@ func topPod(node string, clientset *kubernetes.Clientset, metricsClient *version
 
 	mean, stdDev := calculateStats(memoryUsages)
 
-	// Print each pod metric with dynamic highlighting based on z-score
 	for _, item := range metrics.Items {
 		if podNodeMap[item.Namespace+"/"+item.Name] == node {
 			for _, container := range item.Containers {
@@ -241,7 +249,7 @@ func calculateStats(data []float64) (mean float64, stdDev float64) {
 	}
 	mean = sum / float64(len(data)) // Find the mean
 
-	totalSqDiff := 0.0 // total squared difference
+	totalSqDiff := 0.0 // Total squared difference
 	for _, value := range data {
 		totalSqDiff += math.Pow(value-mean, 2)
 	}
@@ -255,7 +263,6 @@ func zScore(value, mean, stdDev float64) float64 {
 }
 
 func listPod(node string, clientset *kubernetes.Clientset) {
-	// Fetch all pods
 	pods, err := clientset.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{
 		FieldSelector: "spec.nodeName=" + node,
 	})
@@ -267,7 +274,6 @@ func listPod(node string, clientset *kubernetes.Clientset) {
 	var maxPodNameLen int = len("Pod")
 	var maxNamespaceLen int = len("Namespace")
 
-	// Determine the maximum string lengths for pod names and namespaces
 	for _, pod := range pods.Items {
 		if len(pod.Name) > maxPodNameLen {
 			maxPodNameLen = len(pod.Name)
@@ -277,13 +283,111 @@ func listPod(node string, clientset *kubernetes.Clientset) {
 		}
 	}
 
-	// Formatting string based on the max lengths
 	podFormat := fmt.Sprintf("%%-%ds %%-%ds\n", maxNamespaceLen+2, maxPodNameLen)
 	fmt.Printf(podFormat, "Namespace", "Pod")
 
-	// Print each pod's namespace and name with dynamic formatting
 	for _, pod := range pods.Items {
 		fmt.Printf(podFormat, pod.Namespace, pod.Name)
 	}
+}
 
+func promptForService(clientset *kubernetes.Clientset) (string, string) {
+	svcList, err := clientset.CoreV1().Services("").List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		fmt.Printf("Error listing services across all namespaces: %v\n", err)
+		return "", ""
+	}
+
+	var services []string
+	var serviceMap = make(map[string]string)
+	for _, svc := range svcList.Items {
+		serviceIdentifier := fmt.Sprintf("%s (%s)", svc.Name, svc.Namespace)
+		services = append(services, serviceIdentifier)
+		serviceMap[serviceIdentifier] = fmt.Sprintf("%s %s", svc.Name, svc.Namespace)
+	}
+
+	if len(services) == 0 {
+		fmt.Println("No services available to select.")
+		return "", ""
+	}
+
+	prompt := promptui.Select{
+		Label: "Select Service",
+		Items: services,
+	}
+
+	_, result, err := prompt.Run()
+	if err != nil {
+		fmt.Printf("Prompt failed: %v\n", err)
+		return "", ""
+	}
+
+	parts := strings.Split(serviceMap[result], " ")
+	return parts[0], parts[1]
+}
+
+func findServiceNamespace(serviceName string, clientset *kubernetes.Clientset) string {
+	svcList, err := clientset.CoreV1().Services("").List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		fmt.Printf("Error listing services across all namespaces: %v\n", err)
+		return ""
+	}
+	for _, svc := range svcList.Items {
+		if svc.Name == serviceName {
+			return svc.Namespace
+		}
+	}
+	return ""
+}
+
+func showServiceDetailsAndRelatedResources(serviceName, namespace string, clientset *kubernetes.Clientset) {
+	if namespace == "" {
+		fmt.Printf("Service '%s' not found in any namespace or namespace not specified.\n", serviceName)
+		return
+	}
+	service, err := clientset.CoreV1().Services(namespace).Get(context.TODO(), serviceName, metav1.GetOptions{})
+	if err != nil {
+		fmt.Printf("Error fetching service '%s' in namespace '%s': %v\n", serviceName, namespace, err)
+		return
+	}
+
+	fmt.Printf("Service Name: %s in Namespace: %s\n", service.Name, namespace)
+	fmt.Printf("Type: %s\n", service.Spec.Type)
+	fmt.Printf("Cluster IP: %s\n", service.Spec.ClusterIP)
+	fmt.Println("Ports:")
+	for _, port := range service.Spec.Ports {
+		fmt.Printf("- Port: %d -> TargetPort: %s Protocol: %s\n", port.Port, port.TargetPort.String(), port.Protocol)
+	}
+
+	selector := labels.SelectorFromSet(service.Spec.Selector).String()
+
+	deployments, err := clientset.AppsV1().Deployments(namespace).List(context.TODO(), metav1.ListOptions{
+		LabelSelector: selector,
+	})
+	if err == nil && len(deployments.Items) > 0 {
+		fmt.Println("Related Deployments:")
+		for _, d := range deployments.Items {
+			fmt.Printf("- %s\n", d.Name)
+		}
+	}
+
+	replicaSets, err := clientset.AppsV1().ReplicaSets(namespace).List(context.TODO(), metav1.ListOptions{
+		LabelSelector: selector,
+	})
+	if err == nil && len(replicaSets.Items) > 0 {
+		fmt.Println("Related ReplicaSets:")
+		for _, rs := range replicaSets.Items {
+			fmt.Printf("- %s\n", rs.Name)
+		}
+	}
+
+	pods, err := clientset.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{
+		LabelSelector: selector,
+	})
+	if err == nil && len(pods.Items) > 0 {
+		fmt.Println("Related Pods:")
+		for _, p := range pods.Items {
+			fmt.Printf("- %s\n", p.Name)
+		}
+	}
 }
