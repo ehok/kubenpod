@@ -63,3 +63,4 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## Special Thanks To
 Mert Öngengil [@mertongngl](http://github.com/mertongngl)
+Bilal Caliskan [@bilalcaliskan](https://github.com/bilalcaliskan)
