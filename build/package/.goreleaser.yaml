@@ -1,0 +1,63 @@
+---
+project_name: kubenpod
+
+env:
+  - CGO_ENABLED=0
+  - GO111MODULE=auto
+
+before:
+  hooks:
+    - go mod tidy
+    - go mod download
+
+builds:
+  - id: binary
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+    binary: kubenpod
+    ldflags:
+      - -s -w -X github.com/ehok/kubenpod/version.gitVersion={{ .Version }} -X github.com/ehok/kubenpod/version.gitCommit={{ .ShortCommit }} -X github.com/ehok/kubenpod/version.buildDate={{ .CommitDate }}
+    main: ./main.go
+
+archives:
+  - files:
+      - README.md
+      - LICENSE
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+
+release:
+  github:
+    owner: ehok
+    name: kubenpod
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^ci:'
+      - '^build:'
+      - '^style:'
+      - 'README'
+      - '^Merge branch'
+      - '^Merge pull request'
+
+brews:
+  - name: kubenpod
+    tap:
+      owner: ehok
+      name: homebrew-tap
+    commit_author:
+      name: engin
+      email: engincanhoke@gmail.com
+    folder: Formula
+    description: kubenpod does something
+    homepage: https://github.com/ehok/kubenpod
+    license: apache-2.0
+    install: |
+      bin.install "kubenpod"
