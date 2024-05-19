@@ -8,9 +8,8 @@ If you encounter any problem or complexity, open an issue.
 ## Installation
 Before using the KubenPod CLI, ensure you have configured your Kubernetes context and have appropriate permissions to access the resources.
 ```
-sudo curl -LO https://raw.githubusercontent.com/engincanhoke/toppod/master/kubenpod > kubenpod;
-sudo chmod +x kubenpod;
-sudo mv kubenpod /usr/local/bin/kubenpod
+brew tap ehok/homebrew-tap
+brew install kubenpod
 ```
 
 ## Usage
